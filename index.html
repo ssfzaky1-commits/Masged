@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة مسابقات المساجد</title>
+    
+    <!-- إضافات PWA و Android APK -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <meta name="theme-color" content="#047857">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen pb-12">
+
+    <!-- Navbar / Header -->
+    <header class="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-900 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 space-x-reverse cursor-pointer">
+                <div class="bg-white/20 p-1.5 rounded-xl backdrop-blur-md flex items-center justify-center" onclick="goHome()">
+                    <img src="/icon.png" alt="App Logo" class="w-8 h-8 rounded-lg object-cover" onerror="this.outerHTML='<i class=\'fa-solid font-bold fa-mosque text-2xl text-amber-300\'></i>'">
+                </div>
+                <div>
+                    <h1 id="headerTitle" onclick="goHome()" class="font-bold text-lg leading-tight">مسابقات المساجد</h1>
+                    <div class="flex items-center gap-1.5 text-xs text-emerald-200">
+                        <span id="headerSupervisor">المشرف: جارٍ التحميل...</span>
+                        <button onclick="openEditSupervisorModal()" class="hover:text-amber-300 p-0.5 transition" title="تعديل اسم المشرف">
+                            <i class="fa-solid fa-pen text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 space-x-reverse">
+                <!-- زر المزامنة السحابية -->
+                <button onclick="syncWithCloudServer()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-rotate" id="syncIcon"></i>
+                    <span id="syncBtnText">مزامنة سحابية</span>
+                </button>
+                <button onclick="openLeaderboardModal()" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-trophy text-amber-300"></i>
+                    <span>المتصدّرين</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto px-4 mt-4 space-y-4">
+
+        <!-- VIEW 1: Mosques List (Home) -->
+        <div id="mosquesView" class="space-y-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div>
+                    <h2 class="font-bold text-slate-800 text-base">قائمة المساجد</h2>
+                    <p class="text-xs text-slate-500">اختر مسجداً لإدارة المشاركين، أو أضف مسجداً جديداً</p>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button onclick="openAddMosqueModal()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>إضافة مسجد جديد</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="mosquesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Dynamic Mosques -->
+            </div>
+
+            <div id="emptyMosquesState" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200/80 p-6">
+                <i class="fa-solid fa-mosque text-4xl text-slate-300 mb-3"></i>
+                <h3 class="font-bold text-slate-700 text-base">لا توجد مساجد مضافة حتى الآن</h3>
+                <p class="text-xs text-slate-500 mt-1">اضغط على زر "إضافة مسجد جديد" للبدء.</p>
+            </div>
+        </div>
+
+        <!-- VIEW 2: Single Mosque Dashboard -->
+        <div id="participantsView" class="space-y-4 hidden">
+            <!-- Back & Mosque Header -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div class="flex items-center gap-3">
+                    <button onclick="goHome()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl transition">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 id="currentMosqueNameDisplay" class="font-bold text-slate-800 text-lg">اسم المسجد</h2>
+                            <button onclick="openEditCurrentMosqueModal()" class="text-slate-400 hover:text-emerald-600 transition" title="تعديل اسم المسجد">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500">إدارة المشاركين والنقاط والإنذارات</p>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <button onclick="openDisputeModal()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>تسجيل مشاجرة / بلاغ</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls & Search -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-400 text-sm"></i>
+                        <input type="text" id="searchInput" oninput="renderParticipants()" placeholder="ابحث باسم المشارك..." class="w-full pr-9 pl-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <button onclick="openAddParticipantModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>إضافة مشارك جديد</span>
+                    </button>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+                    <div class="bg-slate-50 p-2 rounded-lg">
+                        <div class="text-xs text-slate-500">المشاركون</div>
+                        <div id="statTotal" class="font-bold text-slate-800 text-base">0</div>
+                    </div>
+                    <div class="bg-emerald-50 p-2 rounded-lg">
+                        <div class="text-xs text-emerald-600">المؤهلين (60+)</div>
+                        <div id="statQualified" class="font-bold text-emerald-700 text-base">0</div>
+                    </div>
+                    <div class="bg-amber-50 p-2 rounded-lg">
+                        <div class="text-xs text-amber-600">الجائزة الكبرى (100+)</div>
+                        <div id="statSuper" class="font-bold text-amber-700 text-base">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Participants List -->
+            <div id="participantsList" class="space-y-3">
+                <!-- Dynamic Content -->
+            </div>
+
+            <div id="emptyParticipantsState" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200/80 p-6">
+                <i class="fa-solid fa-users-slash text-4xl text-slate-300 mb-3"></i>
+                <h3 class="font-bold text-slate-700 text-base">لا يوجد مشاركون في هذا المسجد</h3>
+                <p class="text-xs text-slate-500 mt-1">ابدأ بإضافة الطلاب للمسجد.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modals -->
+    <div id="editSupervisorModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-user-pen text-emerald-600"></i>
+                تعديل اسم المشرف
+            </h3>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المشرف الجديد:</label>
+                <input type="text" id="editSupervisorNameInput" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeEditSupervisorModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmEditSupervisorName()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editMosqueModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-emerald-600"></i>
+                تعديل اسم المسجد
+            </h3>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المسجد الجديد:</label>
+                <input type="text" id="editMosqueNameInput" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeEditMosqueModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmEditMosqueName()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">حفظ التغيير</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editParticipantModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-user-pen text-emerald-600"></i>
+                تعديل اسم الطالب / المشارك
+            </h3>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">اسم الطالب الجديد:</label>
+                <input type="text" id="editParticipantNameInput" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeEditParticipantModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmEditParticipantName()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">حفظ التغيير</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="disputeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-scale-balanced text-amber-600"></i>
+                    تسجيل بلاغ أو مشاجرة
+                </h3>
+                <button onclick="closeDisputeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-600">اختر طبيعة البلاغ التربوي:</p>
+            <div class="space-y-2">
+                <button onclick="openMutualFightModal()" class="w-full text-right p-3 rounded-xl border border-slate-200 hover:border-rose-500 hover:bg-rose-50 transition flex items-center justify-between group">
+                    <div>
+                        <div class="font-bold text-xs text-slate-800 group-hover:text-rose-800">⚔️ مشاجرة بين طالبين</div>
+                        <div class="text-[11px] text-slate-500">خصم 5 نقاط من كلا الطرفين المتشاجرين.</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-left text-slate-300 group-hover:text-rose-600 text-xs"></i>
+                </button>
+                <button onclick="openReportBehaviorModal()" class="w-full text-right p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition flex items-center justify-between group">
+                    <div>
+                        <div class="font-bold text-xs text-slate-800 group-hover:text-emerald-800">🛡️ تجنب المشاجرة وإخبار المشرف</div>
+                        <div class="text-[11px] text-slate-500">مكافأة المخبر (+5) ومعاقبة المعتدي (-5).</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-left text-slate-300 group-hover:text-emerald-600 text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mutualFightModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base">مشاجرة بين طالبين (-5 لكليهما)</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">اختر الطالب الأول:</label>
+                    <select id="fighterOneSelect" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">اختر الطالب الثاني:</label>
+                    <select id="fighterTwoSelect" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"></select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeMutualFightModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmMutualFight()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow">تطبيق العقوبة (-5)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportBehaviorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base">تجنب المشاجرة وإخبار المشرف</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-emerald-700 mb-1">🛡️ الطالب المخبر:</label>
+                    <select id="reporterSelect" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-rose-700 mb-1">⚠️ الطرف المعتدي:</label>
+                    <select id="aggressorSelect" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"></select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeReportBehaviorModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmReportBehavior()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">تنفيذ المكافأة والعقوبة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="setupModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl overflow-hidden p-1">
+                    <img src="/icon.png" class="w-full h-full rounded-full object-cover" onerror="this.outerHTML='<i class=\'fa-solid fa-user-tie\'></i>'">
+                </div>
+                <h3 class="font-bold text-slate-800 text-lg">أهلاً بك يا مشرفنا الكريم</h3>
+                <p class="text-xs text-slate-500">أدخل اسمك الكريم للبدء في استخدام التطبيق</p>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المشرف:</label>
+                <input type="text" id="setupSupervisorName" placeholder="مثال: يوسف" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <button onclick="saveSupervisorSetup()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition">
+                حفظ ودخول
+            </button>
+        </div>
+    </div>
+
+    <div id="addMosqueModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-mosque text-emerald-600"></i>
+                إضافة مسجد جديد
+            </h3>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المسجد:</label>
+                <input type="text" id="newMosqueName" placeholder="مثال: مسجد الرحمن" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeAddMosqueModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmAddMosque()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">إضافة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addParticipantModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-user-plus text-emerald-600"></i>
+                إضافة مشارك جديد
+            </h3>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المشارك:</label>
+                <input type="text" id="newParticipantName" placeholder="الاسم ثلاثي" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeAddParticipantModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmAddParticipant()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">إضافة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customPointsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 id="customPointsTitle" class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-emerald-600"></i>
+                تعديل النقاط لسبب آخر
+            </h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">عدد النقاط (+ للزيادة، - للخصم):</label>
+                    <input type="number" id="customPointsValue" value="5" class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">السبب / الملاحظة:</label>
+                    <input type="text" id="customPointsReason" placeholder="مثال: إجابة سؤال مسابقة..." class="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-emerald-500">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeCustomPointsModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100">إلغاء</button>
+                <button onclick="confirmCustomPoints()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 id="historyModalTitle" class="font-bold text-slate-800 text-base">سجل النقاط (آخر 30 يوماً)</h3>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="historyListContainer" class="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1"></div>
+        </div>
+    </div>
+
+    <div id="leaderboardModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-amber-500"></i>
+                    لوحة المتصدرين (الأعلى نقاطاً عبر كل المساجد)
+                </h3>
+                <button onclick="closeLeaderboardModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="leaderboardList" class="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1"></div>
+        </div>
+    </div>
+
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl text-center space-y-3">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 text-base">حذف العنصر</h3>
+            <p id="deleteConfirmText" class="text-xs text-slate-600">هل أنت متأكد من الحذف؟</p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeDeleteModal()" class="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">إلغاء</button>
+                <button id="confirmDeleteBtn" class="flex-1 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        let appData = {
+            supervisor: '',
+            mosques: [],
+            lastResetDate: ''
+        };
+
+        let currentMosqueId = null;
+        let pendingDeleteAction = null;
+        let activeCustomParticipantId = null;
+        let activeCustomType = 'add';
+        let activeEditingMosqueId = null;
+        let activeEditingParticipantId = null;
+
+        // رابط السيرفر السحابي المحدث على Vercel
+        const CLOUD_SERVER_URL = "https://masged-q540zzxtn-ramadan-competition.vercel.app/api/sync";
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadLocalData();
+            checkSaturdayReset();
+            cleanOldHistoryLogs();
+
+            if (!appData.supervisor) {
+                document.getElementById('setupModal').classList.remove('hidden');
+            } else {
+                updateHeaderUI();
+                renderMosques();
+            }
+
+            // تسجيل Service Worker لعمل التطبيق أوفلاين كـ APK
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(() => console.log("Service Worker Registered"))
+                    .catch(err => console.log("SW Registration Failed:", err));
+            }
+        });
+
+        function saveSupervisorSetup() {
+            const name = document.getElementById('setupSupervisorName').value.trim();
+            if (!name) {
+                alert("يرجى إدخال اسم المشرف!");
+                return;
+            }
+            appData.supervisor = name;
+            saveLocalData();
+            document.getElementById('setupModal').classList.add('hidden');
+            updateHeaderUI();
+            renderMosques();
+        }
+
+        function updateHeaderUI() {
+            document.getElementById('headerSupervisor').innerText = `المشرف: ${appData.supervisor || 'غير محدد'}`;
+        }
+
+        // --- وظيفة المزامنة السحابية الحقيقية ---
+        async function syncWithCloudServer() {
+            const btnText = document.getElementById('syncBtnText');
+            const syncIcon = document.getElementById('syncIcon');
+            btnText.innerText = "جاري المزامنة...";
+            syncIcon.classList.add('fa-spin');
+            
+            try {
+                const response = await fetch(CLOUD_SERVER_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(appData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`خطأ في السيرفر: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const serverData = result.data || result;
+
+                if (serverData && serverData.mosques) {
+                    appData = serverData;
+                    saveLocalData();
+                }
+
+                if (currentMosqueId) renderParticipants();
+                else renderMosques();
+
+                alert("✅ تمت المزامنة السحابية بنجاح! تم تحديث البيانات سحابياً.");
+            } catch (error) {
+                console.error("Sync Error:", error);
+                alert("⚠️ تعذر الاتصال بالسيرفر السحابي. التطبيق يعمل أوفلاين ويحفظ البيانات محلياً، يمكنك المزامنة عند توفر شبكة الإنترنت.");
+            } finally {
+                btnText.innerText = "مزامنة سحابية";
+                syncIcon.classList.remove('fa-spin');
+            }
+        }
+
+        // --- Supervisor Name Editing ---
+        function openEditSupervisorModal() {
+            document.getElementById('editSupervisorNameInput').value = appData.supervisor || '';
+            document.getElementById('editSupervisorModal').classList.remove('hidden');
+        }
+        function closeEditSupervisorModal() {
+            document.getElementById('editSupervisorModal').classList.add('hidden');
+        }
+        function confirmEditSupervisorName() {
+            const name = document.getElementById('editSupervisorNameInput').value.trim();
+            if (!name) return;
+            appData.supervisor = name;
+            saveLocalData();
+            updateHeaderUI();
+            closeEditSupervisorModal();
+        }
+
+        // --- Mosque Name Editing ---
+        function openEditMosqueModal(mosqueId) {
+            activeEditingMosqueId = mosqueId;
+            const m = appData.mosques.find(x => x.id === mosqueId);
+            if (!m) return;
+            document.getElementById('editMosqueNameInput').value = m.name;
+            document.getElementById('editMosqueModal').classList.remove('hidden');
+        }
+        function openEditCurrentMosqueModal() {
+            if (currentMosqueId) openEditMosqueModal(currentMosqueId);
+        }
+        function closeEditMosqueModal() {
+            document.getElementById('editMosqueModal').classList.add('hidden');
+            activeEditingMosqueId = null;
+        }
+        function confirmEditMosqueName() {
+            const newName = document.getElementById('editMosqueNameInput').value.trim();
+            if (!newName || !activeEditingMosqueId) return;
+
+            const m = appData.mosques.find(x => x.id === activeEditingMosqueId);
+            if (m) {
+                m.name = newName;
+                saveLocalData();
+                if (currentMosqueId === activeEditingMosqueId) {
+                    document.getElementById('currentMosqueNameDisplay').innerText = newName;
+                }
+                renderMosques();
+            }
+            closeEditMosqueModal();
+        }
+
+        // --- Participant Name Editing ---
+        function openEditParticipantModal(participantId) {
+            activeEditingParticipantId = participantId;
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m) return;
+            const p = m.participants.find(x => x.id === participantId);
+            if (!p) return;
+
+            document.getElementById('editParticipantNameInput').value = p.name;
+            document.getElementById('editParticipantModal').classList.remove('hidden');
+        }
+        function closeEditParticipantModal() {
+            document.getElementById('editParticipantModal').classList.add('hidden');
+            activeEditingParticipantId = null;
+        }
+        function confirmEditParticipantName() {
+            const newName = document.getElementById('editParticipantNameInput').value.trim();
+            if (!newName || !activeEditingParticipantId || !currentMosqueId) return;
+
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (m) {
+                const p = m.participants.find(x => x.id === activeEditingParticipantId);
+                if (p) {
+                    p.name = newName;
+                    saveLocalData();
+                    renderParticipants();
+                }
+            }
+            closeEditParticipantModal();
+        }
+
+        function loadLocalData() {
+            const data = localStorage.getItem('masjeds_competition_app');
+            if (data) {
+                try {
+                    appData = JSON.parse(data);
+                } catch(e) {}
+            }
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('masjeds_competition_app', JSON.stringify(appData));
+        }
+
+        // --- Weekly Saturday Reset for Warnings ---
+        function checkSaturdayReset() {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            if (dayOfWeek === 6 && appData.lastResetDate !== todayStr) {
+                appData.mosques.forEach(m => {
+                    m.participants.forEach(p => p.warnings = 0);
+                });
+                appData.lastResetDate = todayStr;
+                saveLocalData();
+            }
+        }
+
+        function cleanOldHistoryLogs() {
+            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            let updated = false;
+
+            appData.mosques.forEach(m => {
+                m.participants.forEach(p => {
+                    if (p.history) {
+                        const originalLength = p.history.length;
+                        p.history = p.history.filter(h => {
+                            if (!h.timestamp) return true;
+                            return h.timestamp >= thirtyDaysAgo;
+                        });
+                        if (p.history.length !== originalLength) updated = true;
+                    }
+                });
+            });
+
+            if (updated) saveLocalData();
+        }
+
+        function goHome() {
+            currentMosqueId = null;
+            document.getElementById('participantsView').classList.add('hidden');
+            document.getElementById('mosquesView').classList.remove('hidden');
+            renderMosques();
+        }
+
+        function openMosque(id) {
+            currentMosqueId = id;
+            const m = appData.mosques.find(x => x.id === id);
+            if (!m) return;
+            document.getElementById('currentMosqueNameDisplay').innerText = m.name;
+            document.getElementById('mosquesView').classList.add('hidden');
+            document.getElementById('participantsView').classList.remove('hidden');
+            renderParticipants();
+        }
+
+        // --- Mosques CRUD ---
+        function openAddMosqueModal() {
+            document.getElementById('newMosqueName').value = '';
+            document.getElementById('addMosqueModal').classList.remove('hidden');
+        }
+        function closeAddMosqueModal() {
+            document.getElementById('addMosqueModal').classList.add('hidden');
+        }
+        function confirmAddMosque() {
+            const name = document.getElementById('newMosqueName').value.trim();
+            if (!name) return;
+
+            appData.mosques.push({
+                id: 'm_' + Date.now(),
+                name: name,
+                participants: []
+            });
+            saveLocalData();
+            closeAddMosqueModal();
+            renderMosques();
+        }
+
+        function renderMosques() {
+            const grid = document.getElementById('mosquesGrid');
+            const empty = document.getElementById('emptyMosquesState');
+            grid.innerHTML = '';
+
+            if (appData.mosques.length === 0) {
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                appData.mosques.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 hover:border-emerald-500 transition flex justify-between items-center group cursor-pointer";
+                    card.onclick = () => openMosque(m.id);
+
+                    const count = m.participants.length;
+                    card.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-mosque"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold text-slate-800 text-base group-hover:text-emerald-700 transition">${m.name}</h3>
+                                    <button onclick="event.stopPropagation(); openEditMosqueModal('${m.id}')" class="text-slate-300 hover:text-emerald-600 p-1 transition" title="تعديل اسم المسجد">
+                                        <i class="fa-solid fa-pen text-xs"></i>
+                                    </button>
+                                </div>
+                                <p class="text-xs text-slate-500">${count} مشارك مسجل</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                            <button onclick="promptDeleteMosque('${m.id}', '${m.name}')" class="text-slate-400 hover:text-rose-600 p-2 rounded-lg transition" title="حذف المسجد">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                            <i class="fa-solid fa-chevron-left text-slate-300 group-hover:text-emerald-600 text-sm"></i>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        // --- Participants & Points ---
+        function openAddParticipantModal() {
+            document.getElementById('newParticipantName').value = '';
+            document.getElementById('addParticipantModal').classList.remove('hidden');
+        }
+        function closeAddParticipantModal() {
+            document.getElementById('addParticipantModal').classList.add('hidden');
+        }
+        function confirmAddParticipant() {
+            const name = document.getElementById('newParticipantName').value.trim();
+            if (!name || !currentMosqueId) return;
+
+            const currentSupName = appData.supervisor || 'مشرف';
+
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (m) {
+                m.participants.push({
+                    id: 'p_' + Date.now(),
+                    name: name,
+                    points: 30,
+                    warnings: 0,
+                    history: [
+                        { 
+                            date: new Date().toLocaleString('ar-EG'), 
+                            timestamp: Date.now(),
+                            text: 'تم إنشاء المشارك برصيد بداية', 
+                            supervisor: currentSupName,
+                            change: '+30' 
+                        }
+                    ]
+                });
+                saveLocalData();
+                closeAddParticipantModal();
+                renderParticipants();
+            }
+        }
+
+        function renderParticipants() {
+            const listEl = document.getElementById('participantsList');
+            const emptyEl = document.getElementById('emptyParticipantsState');
+            const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
+
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m) return;
+
+            listEl.innerHTML = '';
+            const filtered = m.participants.filter(p => p.name.toLowerCase().includes(searchVal));
+
+            if (filtered.length === 0) {
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                filtered.forEach(p => {
+                    listEl.appendChild(createParticipantCard(p));
+                });
+            }
+
+            document.getElementById('statTotal').innerText = m.participants.length;
+            document.getElementById('statQualified').innerText = m.participants.filter(p => p.points >= 60).length;
+            document.getElementById('statSuper').innerText = m.participants.filter(p => p.points >= 100).length;
+        }
+
+        function createParticipantCard(p) {
+            const card = document.createElement('div');
+            card.className = "bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-3 relative";
+
+            let warningText = "⚠️ لا توجد إنذارات";
+            let warningBg = "bg-slate-100 text-slate-600";
+            if (p.warnings === 1) { warningText = "⚠️ إنذار 1"; warningBg = "bg-amber-100 text-amber-800"; }
+            else if (p.warnings === 2) { warningText = "⚠️ إنذار 2"; warningBg = "bg-amber-200 text-amber-900 font-bold"; }
+            else if (p.warnings >= 3) { warningText = "⚠️ إنذار 3 (طرد)"; warningBg = "bg-rose-100 text-rose-800 font-bold"; }
+
+            let statusTag = '';
+            if (p.points >= 100) {
+                statusTag = `<span class="bg-amber-400 text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">👑 الجائزة الكبرى</span>`;
+            } else if (p.points >= 60) {
+                statusTag = `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">✅ مؤهل</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-slate-800 text-base">${p.name}</h3>
+                            <button onclick="openEditParticipantModal('${p.id}')" class="text-slate-300 hover:text-emerald-600 p-1 transition" title="تعديل اسم الطالب">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            ${statusTag}
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="${warningBg} px-2 py-0.5 rounded-md text-[11px]">${warningText}</span>
+                            <span class="text-slate-400">الإنذارات: ${p.warnings}/3</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openHistoryModal('${p.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1" title="سجل النقاط">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <span>السجل</span>
+                        </button>
+                        <div class="text-left bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                            <div class="text-[10px] text-slate-400 font-bold">النقاط</div>
+                            <div class="text-xl font-extrabold ${p.points < 30 ? 'text-rose-600' : 'text-emerald-600'}">${p.points}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-2 border-t border-slate-100">
+                    <button onclick="modifyPoints('${p.id}', 1, 'حضور صلوات اليوم')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold py-1.5 px-2 rounded-lg transition text-center">
+                        +1 صلوات اليوم
+                    </button>
+                    <button onclick="modifyPoints('${p.id}', 1, 'صلاة الفجر بالجامع')" class="bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold py-1.5 px-2 rounded-lg transition text-center">
+                        +1 فجر بالجامع
+                    </button>
+                    <button onclick="modifyPoints('${p.id}', -1, 'تقصير بالصلوات')" class="bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold py-1.5 px-2 rounded-lg transition text-center">
+                        -1 تقصير صلاة
+                    </button>
+                    <button onclick="modifyPoints('${p.id}', 5, 'تسميع الورق')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold py-1.5 px-2 rounded-lg transition text-center">
+                        +5 تسميع الورق
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-1.5 pt-1 text-xs">
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="openCustomPointsModal('${p.id}', 'add')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-sm">
+                            + زيادة لسبب آخر
+                        </button>
+                        <button onclick="openCustomPointsModal('${p.id}', 'sub')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-sm">
+                            - نقص لسبب آخر
+                        </button>
+                        <button onclick="addWarning('${p.id}')" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-2.5 py-1 rounded-lg text-[11px] transition">
+                            +1 إنذار
+                        </button>
+                        <button onclick="removeWarning('${p.id}')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[11px] transition" title="إزالة إنذار بالخطأ">
+                            -1 إنذار (إلغاء)
+                        </button>
+                    </div>
+
+                    <button onclick="promptDeleteParticipant('${p.id}', '${p.name}')" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-3 py-1 rounded-lg text-xs transition">
+                        <i class="fa-solid fa-trash-can"></i> حذف
+                    </button>
+                </div>
+            `;
+            return card;
+        }
+
+        // --- Dispute & Report Modals Logic ---
+        function openDisputeModal() { document.getElementById('disputeModal').classList.remove('hidden'); }
+        function closeDisputeModal() { document.getElementById('disputeModal').classList.add('hidden'); }
+
+        function populateSelectOptions(selectElementId) {
+            const selectEl = document.getElementById(selectElementId);
+            selectEl.innerHTML = '';
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m || m.participants.length === 0) {
+                selectEl.innerHTML = '<option value="">لا توجد أسماء مسجلة</option>';
+                return;
+            }
+            m.participants.forEach(p => {
+                selectEl.innerHTML += `<option value="${p.id}">${p.name} (${p.points} نقطة)</option>`;
+            });
+        }
+
+        function openMutualFightModal() {
+            closeDisputeModal();
+            populateSelectOptions('fighterOneSelect');
+            populateSelectOptions('fighterTwoSelect');
+            document.getElementById('mutualFightModal').classList.remove('hidden');
+        }
+        function closeMutualFightModal() { document.getElementById('mutualFightModal').classList.add('hidden'); }
+
+        function confirmMutualFight() {
+            const id1 = document.getElementById('fighterOneSelect').value;
+            const id2 = document.getElementById('fighterTwoSelect').value;
+            if (!id1 || !id2) {
+                alert("يرجى اختيار الطرفين!");
+                return;
+            }
+            if (id1 === id2) {
+                alert("لا يمكن اختيار نفس الطالب لطرفي المشاجرة!");
+                return;
+            }
+
+            modifyPoints(id1, -5, 'مشاجرة وإحداث شغب (-5)');
+            modifyPoints(id2, -5, 'مشاجرة وإحداث شغب (-5)');
+            closeMutualFightModal();
+            alert("تم تطبيق عقوبة المشاجرة على الطرفين بنجاح!");
+        }
+
+        function openReportBehaviorModal() {
+            closeDisputeModal();
+            populateSelectOptions('reporterSelect');
+            populateSelectOptions('aggressorSelect');
+            document.getElementById('reportBehaviorModal').classList.remove('hidden');
+        }
+        function closeReportBehaviorModal() { document.getElementById('reportBehaviorModal').classList.add('hidden'); }
+
+        function confirmReportBehavior() {
+            const reporterId = document.getElementById('reporterSelect').value;
+            const aggressorId = document.getElementById('aggressorSelect').value;
+            if (!reporterId || !aggressorId) {
+                alert("يرجى اختيار المخبر والمعتدي!");
+                return;
+            }
+            if (reporterId === aggressorId) {
+                alert("لا يمكن اختيار نفس الطالب كمخبر ومعتدي في نفس الوقت!");
+                return;
+            }
+
+            modifyPoints(reporterId, 5, 'مكافأة تجنب الشجار وإبلاغ المشرف بالحكمة (+5)');
+            modifyPoints(aggressorId, -5, 'إثارة الشجار وإحداث مشاكل (-5)');
+            closeReportBehaviorModal();
+            alert("تم تسجيل البلاغ بنجاح: مكافأة المخبر ومعاقبة المعتدي!");
+        }
+
+        // --- Points & Warnings modification helper ---
+        function modifyPoints(participantId, amount, reason) {
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m) return;
+            const p = m.participants.find(x => x.id === participantId);
+            if (!p) return;
+
+            p.points = Math.max(0, p.points + amount);
+            const sign = amount > 0 ? `+${amount}` : `${amount}`;
+            
+            const currentSupName = appData.supervisor || 'مشرف';
+
+            if (!p.history) p.history = [];
+            p.history.unshift({
+                date: new Date().toLocaleString('ar-EG'),
+                timestamp: Date.now(),
+                text: reason,
+                supervisor: currentSupName,
+                change: sign
+            });
+
+            saveLocalData();
+            renderParticipants();
+        }
+
+        function addWarning(participantId) {
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m) return;
+            const p = m.participants.find(x => x.id === participantId);
+            if (!p) return;
+
+            p.warnings++;
+            const currentSupName = appData.supervisor || 'مشرف';
+
+            if (!p.history) p.history = [];
+            p.history.unshift({
+                date: new Date().toLocaleString('ar-EG'),
+                timestamp: Date.now(),
+                text: `حصول على إنذار جديد (إجمالي: ${p.warnings})`,
+                supervisor: currentSupName,
+                change: 'إنذار'
+            });
+
+            saveLocalData();
+            renderParticipants();
+        }
+
+        function removeWarning(participantId) {
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m) return;
+            const p = m.participants.find(x => x.id === participantId);
+            if (!p || p.warnings <= 0) {
+                alert("لا توجد إنذارات لإزالتها!");
+                return;
+            }
+
+            p.warnings--;
+            const currentSupName = appData.supervisor || 'مشرف';
+
+            if (!p.history) p.history = [];
+            p.history.unshift({
+                date: new Date().toLocaleString('ar-EG'),
+                timestamp: Date.now(),
+                text: `إلغاء/إزالة إنذار (الرصيد الحالي: ${p.warnings})`,
+                supervisor: currentSupName,
+                change: 'إلغاء إنذار'
+            });
+
+            saveLocalData();
+            renderParticipants();
+        }
+
+        function openCustomPointsModal(participantId, type) {
+            activeCustomParticipantId = participantId;
+            activeCustomType = type;
+            document.getElementById('customPointsValue').value = '5';
+            document.getElementById('customPointsReason').value = '';
+            document.getElementById('customPointsTitle').innerHTML = type === 'add' 
+                ? '<i class="fa-solid fa-circle-plus text-emerald-600"></i> زيادة النقاط لسبب آخر'
+                : '<i class="fa-solid fa-circle-minus text-rose-600"></i> خصم النقاط لسبب آخر';
+            document.getElementById('customPointsModal').classList.remove('hidden');
+        }
+        function closeCustomPointsModal() {
+            document.getElementById('customPointsModal').classList.add('hidden');
+            activeCustomParticipantId = null;
+        }
+        function confirmCustomPoints() {
+            const val = parseInt(document.getElementById('customPointsValue').value) || 0;
+            const reason = document.getElementById('customPointsReason').value.trim() || 'سبب آخر';
+            if (val <= 0) return;
+
+            const finalVal = activeCustomType === 'add' ? val : -val;
+            modifyPoints(activeCustomParticipantId, finalVal, reason);
+            closeCustomPointsModal();
+        }
+
+        function openHistoryModal(participantId) {
+            const m = appData.mosques.find(x => x.id === currentMosqueId);
+            if (!m) return;
+            const p = m.participants.find(x => x.id === participantId);
+            if (!p) return;
+
+            document.getElementById('historyModalTitle').innerText = `سجل نقاط الطالب: ${p.name} (آخر 30 يوماً)`;
+            const container = document.getElementById('historyListContainer');
+            container.innerHTML = '';
+
+            if (!p.history || p.history.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-400 py-6 text-xs">لا توجد سجلات مسجلة خلال آخر 30 يوماً</div>';
+            } else {
+                p.history.forEach(h => {
+                    const isPositive = h.change.startsWith('+') || h.change.includes('إلغاء') || (h.change.includes('إنذار') === false && parseInt(h.change) > 0);
+                    const supName = h.supervisor || appData.supervisor || 'مشرف';
+                    container.innerHTML += `
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
+                            <div class="space-y-0.5">
+                                <div class="font-bold text-slate-800">${h.text}</div>
+                                <div class="text-[10px] text-emerald-700 font-semibold">بواسطة المشرف: ${supName}</div>
+                                <div class="text-[10px] text-slate-400">${h.date}</div>
+                            </div>
+                            <span class="font-mono font-bold px-2.5 py-1 rounded-lg ${isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${h.change}</span>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('historyModal').classList.remove('hidden');
+        }
+        function closeHistoryModal() { document.getElementById('historyModal').classList.add('hidden'); }
+
+        function openLeaderboardModal() {
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '';
+
+            let allParticipants = [];
+            appData.mosques.forEach(m => {
+                m.participants.forEach(p => {
+                    allParticipants.push({ ...p, mosqueName: m.name });
+                });
+            });
+
+            allParticipants.sort((a, b) => b.points - a.points);
+
+            if (allParticipants.length === 0) {
+                list.innerHTML = '<div class="text-center text-slate-400 py-8 text-xs">لا يوجد مشاركون مسجلون في أي مسجد بعد</div>';
+            } else {
+                allParticipants.forEach((p, index) => {
+                    let medal = `<span class="font-mono font-bold text-slate-500">#${index + 1}</span>`;
+                    if (index === 0) medal = '🥇';
+                    else if (index === 1) medal = '🥈';
+                    else if (index === 2) medal = '🥉';
+
+                    list.innerHTML += `
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 text-center text-sm">${medal}</div>
+                                <div>
+                                    <div class="font-bold text-slate-800 text-sm">${p.name}</div>
+                                    <div class="text-[10px] text-emerald-600 font-semibold">${p.mosqueName}</div>
+                                </div>
+                            </div>
+                            <div class="font-extrabold text-emerald-700 text-base font-mono">${p.points} نقطة</div>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('leaderboardModal').classList.remove('hidden');
+        }
+        function closeLeaderboardModal() { document.getElementById('leaderboardModal').classList.add('hidden'); }
+
+        // --- Deletions ---
+        function promptDeleteMosque(id, name) {
+            pendingDeleteAction = { type: 'mosque', id };
+            document.getElementById('deleteConfirmText').innerText = `هل أنت متأكد من حذف مسجد (${name}) وكل المشاركين فيه؟`;
+            document.getElementById('deleteConfirmModal').classList.remove('hidden');
+            document.getElementById('confirmDeleteBtn').onclick = executeDelete;
+        }
+
+        function promptDeleteParticipant(id, name) {
+            pendingDeleteAction = { type: 'participant', id };
+            document.getElementById('deleteConfirmText').innerText = `هل أنت متأكد من حذف المشارك (${name})؟`;
+            document.getElementById('deleteConfirmModal').classList.remove('hidden');
+            document.getElementById('confirmDeleteBtn').onclick = executeDelete;
+        }
+
+        function executeDelete() {
+            if (!pendingDeleteAction) return;
+
+            if (pendingDeleteAction.type === 'mosque') {
+                appData.mosques = appData.mosques.filter(x => x.id !== pendingDeleteAction.id);
+                saveLocalData();
+                goHome();
+            } else if (pendingDeleteAction.type === 'participant') {
+                const m = appData.mosques.find(x => x.id === currentMosqueId);
+                if (m) {
+                    m.participants = m.participants.filter(x => x.id !== pendingDeleteAction.id);
+                    saveLocalData();
+                    renderParticipants();
+                }
+            }
+            closeDeleteModal();
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteConfirmModal').classList.add('hidden');
+            pendingDeleteAction = null;
+        }
+    </script>
+</body>
+</html>
